@@ -145,45 +145,45 @@ the example consumer calls the deployed oracle address.
 
 ## StudioNet Evidence
 
-StudioNet run started on August 3, 2026 and reached the RPC hourly rate limit
-while polling the consumer guard approval. The main oracle evidence completed
-before the limit:
+StudioNet evidence passed on August 3, 2026.
+
+| Contract | Address |
+|---|---|
+| `DependencyDriftOracle` | `0x9CCaD10e56Ba56fC702C23dc39092676bFe3ED74` |
+| `DependencyReleaseGuard` | `0x961544c7C4dC4e8137D49c4205FB7a76d1051Cb3` |
+
+Explorer links:
+
+- Oracle: `https://explorer-studio.genlayer.com/address/0x9CCaD10e56Ba56fC702C23dc39092676bFe3ED74`
+- Release guard: `https://explorer-studio.genlayer.com/address/0x961544c7C4dC4e8137D49c4205FB7a76d1051Cb3`
+
+Main oracle evidence:
 
 | Action | Transaction | Result |
 |---|---|---|
-| deploy `DependencyDriftOracle` | `0x81d98b8361dd0d81b470d5d04092281417936c5da743c4881d350170e02e1a78` | success |
-| register unchanged dependency | `0x0e9dfe4ad3dfa949282717787c745f4faee989ab23c2505aa68178409af716df` | success |
-| review unchanged dependency | `0x1881cffc72df441a660dceb8035c09625ea60aa62bd32e3304548c63a127fac5` | `UNCHANGED` |
-| register stale/material dependency | `0xdbe5dea1a70819078760109b896322c5baf1fa62751bca93fe4f7906dafeafaa` | success |
-| review stale/material dependency | `0x57740b282cbe2ca9ba257c8d4fb175100952b129bcb464dec2a5e436e7066438` | `MATERIAL_DRIFT` |
-| register unavailable dependency | `0x45cdcf81e26969e7cf0604682f9954c221bf528fb62969f98412e71c0adddaf6` | success |
-| review unavailable dependency | `0xf370c0397d9435aa339625327903e18b9fea8f0fd42a9331d4313d5adf11b1d8` | `UNAVAILABLE` |
-| deactivate dependency | `0xec04d92799fe709ab2e70436927bfd8b5e2fa2c8555b08a95977ba94dadfe023` | success |
-| reactivate dependency | `0x407db67971396ee44e44846628f212d604e1c543d033a89c7f5434783901f905` | success |
-| deploy `DependencyReleaseGuard` | `0x9434cad6d184db94b16dba11018ae510b22141e7a6d11cea35d0a1be4379aaa6` | success |
-| guard propose safe release | `0x9976f86232e1745c4fc110aa0c35331df4866dd1683736c2e2fb96bca773d468` | success |
+| deploy `DependencyDriftOracle` | `0xb5ddce73e2abf2d4a6fc299b3ba638794d167d61016559003cb084c053a21c72` | success |
+| register unchanged dependency | `0x68e86463958cafcbef0ff9aa239fd5105a4246e7d9718fe5891bfbf5fbeedd3c` | success |
+| review unchanged dependency | `0x85df9c02b47ae6fe8d53b3fed03d05788ebefd4a096706bf6463f4b4c8d4db6e` | `UNCHANGED` |
+| register stale/material dependency | `0x839530faec568048b3a553f47ae1f94bbb0df1fb21e7294958d3e398f3a3727e` | success |
+| review stale/material dependency | `0xb6c73c40bd6bdd555ccb8bab971c8c34f7a54921db84d0fa343111182cf82e0e` | `MATERIAL_DRIFT` |
+| register unavailable dependency | `0x7341fd34580b7e6ec9a971f4c73628109b7997b7818d664b68363fcc9fd40a2d` | success |
+| review unavailable dependency | `0xd08d17288e52a48192e293da5af3fd6af6dedbc60023434a4024adae8f7c25dd` | `UNAVAILABLE` |
+| deactivate dependency | `0x23bcf0b0569f527b5471592af0264351a24f34d162f92e14f0920ec3301b3c4e` | success |
+| reactivate dependency | `0xdb871042d56f476c7b86c092d78aebf5df86714fa95b522fa2fe691c793b9ab5` | success |
 
-The consumer guard approval transaction was interrupted by:
+Consumer guard evidence:
 
-```text
-Rate limit exceeded: 500 requests per hour
-```
+| Action | Transaction | Result |
+|---|---|---|
+| deploy `DependencyReleaseGuard` | `0xb90cdf8500e55b31ebcb5383a8cc46a014a3233f41f3a0908fddd2060156200f` | success |
+| guard propose safe release | `0x600d07034b95a87c2e6d177968872c11f0c52acbf301c2e034f5fe24715009c3` | success |
+| guard approve safe release | `0xf8af0f67fa3a478bae32eabc1b96570c702900c593c32e1b109b347d17af02ef` | `APPROVED`, checked oracle verdict `UNCHANGED` |
+| guard propose risky release | `0x0d2a9641b68cedfe75b013ba457ff5e1f1f0febdda2f425ccd62f5be5e4d4d72` | success |
+| guard attempt risky approval | `0xcd759716b309b0532bd2cd1c8f92ba5199ab8533344e3d69e8331c78c7c12166` | finalized/accepted with GenVM rollback: `EXPECTED: dependency verdict blocks release` |
 
-So the main oracle has live StudioNet evidence for all four write methods and
-all three verdict classes. The guard still needs one resumed StudioNet run after
-the rate window resets to prove `approve_release_if_dependency_safe` against the
-deployed oracle.
-
-## Remaining StudioNet Guard Step
-
-After the rate limit resets, run:
-
-```text
-gltest scripts/studionet_evidence.py -v -s --network studionet
-```
-
-Or add a small resume script using the deployed oracle and guard addresses from
-the deploy transactions above.
+The risky release remained `PROPOSED` with `checked_verdict: UNKNOWN`, proving the
+guard did not approve or mutate the release after the oracle returned
+`MATERIAL_DRIFT`.
 
 ## Commands
 

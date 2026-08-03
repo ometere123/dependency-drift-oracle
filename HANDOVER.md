@@ -1,7 +1,6 @@
 # Handover - DependencyDriftOracle
 
-Current status: local implementation complete, main StudioNet oracle evidence
-partially complete.
+Current status: local implementation and StudioNet evidence complete.
 
 ## Built
 
@@ -26,53 +25,58 @@ python -m pytest tests/direct -q
 
 The linter reports only informational runner-update warning `I200`.
 
-## StudioNet Evidence Completed Before Rate Limit
-
-The evidence script deployed the oracle, executed every main oracle write, and
-deployed/proposed on the consumer guard. It then hit StudioNet's hourly RPC rate
-limit while polling `approve_release_if_dependency_safe`.
+## StudioNet Evidence Completed
 
 Completed transaction hashes:
 
 ```text
 deploy DependencyDriftOracle:
-0x81d98b8361dd0d81b470d5d04092281417936c5da743c4881d350170e02e1a78
+0xb5ddce73e2abf2d4a6fc299b3ba638794d167d61016559003cb084c053a21c72
+
+DependencyDriftOracle address:
+0x9CCaD10e56Ba56fC702C23dc39092676bFe3ED74
 
 register unchanged:
-0x0e9dfe4ad3dfa949282717787c745f4faee989ab23c2505aa68178409af716df
+0x68e86463958cafcbef0ff9aa239fd5105a4246e7d9718fe5891bfbf5fbeedd3c
 
 review unchanged -> UNCHANGED:
-0x1881cffc72df441a660dceb8035c09625ea60aa62bd32e3304548c63a127fac5
+0x85df9c02b47ae6fe8d53b3fed03d05788ebefd4a096706bf6463f4b4c8d4db6e
 
 register material:
-0xdbe5dea1a70819078760109b896322c5baf1fa62751bca93fe4f7906dafeafaa
+0x839530faec568048b3a553f47ae1f94bbb0df1fb21e7294958d3e398f3a3727e
 
 review material -> MATERIAL_DRIFT:
-0x57740b282cbe2ca9ba257c8d4fb175100952b129bcb464dec2a5e436e7066438
+0xb6c73c40bd6bdd555ccb8bab971c8c34f7a54921db84d0fa343111182cf82e0e
 
 register unavailable:
-0x45cdcf81e26969e7cf0604682f9954c221bf528fb62969f98412e71c0adddaf6
+0x7341fd34580b7e6ec9a971f4c73628109b7997b7818d664b68363fcc9fd40a2d
 
 review unavailable -> UNAVAILABLE:
-0xf370c0397d9435aa339625327903e18b9fea8f0fd42a9331d4313d5adf11b1d8
+0xd08d17288e52a48192e293da5af3fd6af6dedbc60023434a4024adae8f7c25dd
 
 deactivate:
-0xec04d92799fe709ab2e70436927bfd8b5e2fa2c8555b08a95977ba94dadfe023
+0x23bcf0b0569f527b5471592af0264351a24f34d162f92e14f0920ec3301b3c4e
 
 reactivate:
-0x407db67971396ee44e44846628f212d604e1c543d033a89c7f5434783901f905
+0xdb871042d56f476c7b86c092d78aebf5df86714fa95b522fa2fe691c793b9ab5
 
 deploy DependencyReleaseGuard:
-0x9434cad6d184db94b16dba11018ae510b22141e7a6d11cea35d0a1be4379aaa6
+0xb90cdf8500e55b31ebcb5383a8cc46a014a3233f41f3a0908fddd2060156200f
+
+DependencyReleaseGuard address:
+0x961544c7C4dC4e8137D49c4205FB7a76d1051Cb3
 
 guard propose safe release:
-0x9976f86232e1745c4fc110aa0c35331df4866dd1683736c2e2fb96bca773d468
-```
+0x600d07034b95a87c2e6d177968872c11f0c52acbf301c2e034f5fe24715009c3
 
-The script failed only because of:
+guard approve safe release -> APPROVED, checked_verdict UNCHANGED:
+0xf8af0f67fa3a478bae32eabc1b96570c702900c593c32e1b109b347d17af02ef
 
-```text
-Rate limit exceeded: 500 requests per hour
+guard propose risky release:
+0x0d2a9641b68cedfe75b013ba457ff5e1f1f0febdda2f425ccd62f5be5e4d4d72
+
+guard attempt risky approval -> accepted rollback, action blocked:
+0xcd759716b309b0532bd2cd1c8f92ba5199ab8533344e3d69e8331c78c7c12166
 ```
 
 ## Important Design Notes
@@ -87,10 +91,9 @@ Rate limit exceeded: 500 requests per hour
 
 ## Next Steps
 
-1. After the hourly rate limit resets, resume the guard approval/blocking proof.
-2. Open the deploy transactions in Explorer and copy the main/guard addresses.
-3. Update README with final addresses and explorer links.
-4. Commit and push to GitHub.
+1. Commit the updated README/HANDOVER.
+2. Create public GitHub repo and push.
+3. Prepare the <=1000-character submission note.
 
 ## Suggested Live Rounds
 
