@@ -63,6 +63,8 @@ def test_register_dependency_records_profile(direct_vm, direct_deploy, direct_al
     assert state["watch_terms"] == WATCH
     assert state["active"] is True
     assert state["latest_verdict"] == "UNKNOWN"
+    assert state["supersedes_id"] == 0
+    assert state["successor_id"] == 0
 
 
 def test_ids_are_monotonic(direct_deploy):
@@ -289,6 +291,99 @@ def test_two_dependencies_keep_separate_state(direct_vm, direct_deploy):
     c.review_dependency(one)
     assert c.get_latest_verdict(one) == "UNCHANGED"
     assert c.get_latest_verdict(two) == "UNKNOWN"
+
+
+def test_owner_can_register_successor_without_mutating_old_baseline(direct_vm, direct_deploy, direct_alice):
+    c = deploy(direct_deploy)
+    direct_vm.sender = direct_alice
+    old_id = register(c)
+    new_baseline = "SDK v2 uses endpoint /v2/run and keeps MIT license with compatible responses."
+    new_id = c.register_successor(old_id, "Example SDK v2", URL, new_baseline, WATCH)
+    old_state = c.get_dependency(old_id)
+    new_state = c.get_dependency(new_id)
+    assert new_id == old_id + 1
+    assert old_state["baseline"] == BASELINE
+    assert old_state["successor_id"] == new_id
+    assert old_state["supersedes_id"] == 0
+    assert new_state["baseline"] == new_baseline
+    assert new_state["supersedes_id"] == old_id
+    assert new_state["successor_id"] == 0
+    assert new_state["owner"] == old_state["owner"]
+
+
+def test_lineage_view_reports_successor_and_parent(direct_vm, direct_deploy, direct_alice):
+    c = deploy(direct_deploy)
+    direct_vm.sender = direct_alice
+    old_id = register(c)
+    new_id = c.register_successor(
+        old_id,
+        "Example SDK v2",
+        URL,
+        "SDK v2 keeps the same security and licensing terms with a new endpoint.",
+        WATCH,
+    )
+    assert c.get_lineage(old_id) == {
+        "dep_id": old_id,
+        "supersedes_id": 0,
+        "successor_id": new_id,
+        "has_successor": True,
+        "is_successor": False,
+    }
+    assert c.get_lineage(new_id) == {
+        "dep_id": new_id,
+        "supersedes_id": old_id,
+        "successor_id": 0,
+        "has_successor": False,
+        "is_successor": True,
+    }
+
+
+def test_non_owner_cannot_register_successor(direct_vm, direct_deploy, direct_alice, direct_bob):
+    c = deploy(direct_deploy)
+    direct_vm.sender = direct_alice
+    old_id = register(c)
+    with direct_vm.prank(direct_bob):
+        with direct_vm.expect_revert("only owner"):
+            c.register_successor(
+                old_id,
+                "Bad successor",
+                URL,
+                "A new approved baseline that should be owner-controlled.",
+                WATCH,
+            )
+
+
+def test_successor_can_only_be_registered_once(direct_vm, direct_deploy, direct_alice):
+    c = deploy(direct_deploy)
+    direct_vm.sender = direct_alice
+    old_id = register(c)
+    c.register_successor(
+        old_id,
+        "Example SDK v2",
+        URL,
+        "SDK v2 keeps the same security and licensing terms with a new endpoint.",
+        WATCH,
+    )
+    with direct_vm.expect_revert("successor already registered"):
+        c.register_successor(
+            old_id,
+            "Example SDK v3",
+            URL,
+            "SDK v3 keeps the same security and licensing terms with a newer endpoint.",
+            WATCH,
+        )
+
+
+def test_successor_unknown_dependency_reverts(direct_vm, direct_deploy):
+    c = deploy(direct_deploy)
+    with direct_vm.expect_revert("not found"):
+        c.register_successor(
+            99,
+            "Missing successor",
+            URL,
+            "A new approved baseline for a dependency that does not exist.",
+            WATCH,
+        )
 
 
 def test_hash_changes_with_evidence(direct_vm, direct_deploy):

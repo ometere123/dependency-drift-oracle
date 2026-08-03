@@ -56,6 +56,8 @@ class DependencyProfile:
     latest_verdict: str
     latest_note: str
     latest_review_at: str
+    supersedes_id: u256
+    successor_id: u256
 
 
 @allow_storage
@@ -80,6 +82,10 @@ class DependencyDeactivated(gl.Event):
     def __init__(self, dep_id: u256, /, **blob): ...
 
 
+class DependencySuccessorRegistered(gl.Event):
+    def __init__(self, old_dep_id: u256, new_dep_id: u256, /, **blob): ...
+
+
 @gl.contract_interface
 class IDependencyDriftOracle:
     class View:
@@ -88,11 +94,15 @@ class IDependencyDriftOracle:
         def is_reliable(self, dep_id: u256, max_age_seconds: u64) -> bool: ...
         def get_dependency(self, dep_id: u256) -> dict: ...
         def get_latest_review(self, dep_id: u256) -> dict: ...
+        def get_lineage(self, dep_id: u256) -> dict: ...
         def is_materially_drifted(self, dep_id: u256) -> bool: ...
 
     class Write:
         def register_dependency(
             self, name: str, url: str, baseline: str, watch_terms: str
+        ) -> u256: ...
+        def register_successor(
+            self, old_dep_id: u256, name: str, url: str, baseline: str, watch_terms: str
         ) -> u256: ...
         def review_dependency(self, dep_id: u256) -> str: ...
 
@@ -205,6 +215,41 @@ class DependencyDriftOracle(gl.Contract):
 
     @gl.public.write
     def register_dependency(self, name: str, url: str, baseline: str, watch_terms: str) -> u256:
+        return self._create_dependency(
+            gl.message.sender_address, name, url, baseline, watch_terms, u256(0)
+        )
+
+    @gl.public.write
+    def register_successor(
+        self,
+        old_dep_id: u256,
+        name: str,
+        url: str,
+        baseline: str,
+        watch_terms: str,
+    ) -> u256:
+        old = self._require_dependency(old_dep_id)
+        if old.owner != gl.message.sender_address:
+            raise gl.vm.UserError(f"{ERR_EXPECTED}: only owner may register successor")
+        if int(old.successor_id) != 0:
+            raise gl.vm.UserError(f"{ERR_EXPECTED}: successor already registered")
+
+        new_dep_id = self._create_dependency(
+            old.owner, name, url, baseline, watch_terms, old_dep_id
+        )
+        old.successor_id = new_dep_id
+        DependencySuccessorRegistered(old_dep_id, new_dep_id).emit()
+        return new_dep_id
+
+    def _create_dependency(
+        self,
+        owner: Address,
+        name: str,
+        url: str,
+        baseline: str,
+        watch_terms: str,
+        supersedes_id: u256,
+    ) -> u256:
         if int(self.next_id) > MAX_DEPENDENCIES:
             raise gl.vm.UserError(f"{ERR_EXPECTED}: dependency cap reached")
         if len(name) < 1 or len(name) > MAX_NAME:
@@ -219,7 +264,7 @@ class DependencyDriftOracle(gl.Contract):
         dep_id = self.next_id
         self.next_id = u256(int(dep_id) + 1)
         dep = self.dependencies.get_or_insert_default(dep_id)
-        dep.owner = gl.message.sender_address
+        dep.owner = owner
         dep.name = name
         dep.url = url
         dep.baseline = baseline
@@ -230,6 +275,8 @@ class DependencyDriftOracle(gl.Contract):
         dep.latest_verdict = VERDICT_UNKNOWN
         dep.latest_note = ""
         dep.latest_review_at = ""
+        dep.supersedes_id = supersedes_id
+        dep.successor_id = u256(0)
         DependencyRegistered(dep_id, name, url, owner=str(dep.owner)).emit()
         return dep_id
 
@@ -297,6 +344,8 @@ class DependencyDriftOracle(gl.Contract):
             "latest_verdict": str(dep.latest_verdict),
             "latest_note": str(dep.latest_note),
             "latest_review_at": str(dep.latest_review_at),
+            "supersedes_id": int(dep.supersedes_id),
+            "successor_id": int(dep.successor_id),
         }
 
     @gl.public.view
@@ -345,6 +394,17 @@ class DependencyDriftOracle(gl.Contract):
     @gl.public.view
     def is_reliable(self, dep_id: u256, max_age_seconds: u64) -> bool:
         return self.get_reliance_status(dep_id, max_age_seconds) == RELIANCE_RELIABLE
+
+    @gl.public.view
+    def get_lineage(self, dep_id: u256) -> dict:
+        dep = self._require_dependency(dep_id)
+        return {
+            "dep_id": int(dep_id),
+            "supersedes_id": int(dep.supersedes_id),
+            "successor_id": int(dep.successor_id),
+            "has_successor": int(dep.successor_id) != 0,
+            "is_successor": int(dep.supersedes_id) != 0,
+        }
 
     @gl.public.view
     def get_latest_review(self, dep_id: u256) -> dict:

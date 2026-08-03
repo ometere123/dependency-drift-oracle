@@ -24,11 +24,13 @@ BAD_URL = "https://nonexistent-dependency-drift-oracle.invalid/readme"
 MAIN_SCHEMA = {
     "methods": {
         "register_dependency": {"readonly": False},
+        "register_successor": {"readonly": False},
         "review_dependency": {"readonly": False},
         "deactivate_dependency": {"readonly": False},
         "reactivate_dependency": {"readonly": False},
         "get_dependency": {"readonly": True},
         "get_latest_review": {"readonly": True},
+        "get_lineage": {"readonly": True},
         "get_latest_verdict": {"readonly": True},
         "get_reliance_status": {"readonly": True},
         "is_reliable": {"readonly": True},
@@ -77,6 +79,24 @@ def review(contract, dep_id, label):
     return tx_hash, dep["latest_verdict"]
 
 
+def register_successor(contract, old_dep_id, name, url, baseline, watch_terms):
+    before = contract.dependency_count().call()
+    receipt = contract.register_successor(
+        args=[old_dep_id, name, url, baseline, watch_terms]
+    ).transact(**WAIT)
+    tx_hash = require_ok(f"register_successor {name}", receipt)
+    new_dep_id = before + 1
+    show(
+        f"successor {old_dep_id}->{new_dep_id}",
+        {
+            "old": contract.get_lineage(args=[old_dep_id]).call(),
+            "new": contract.get_lineage(args=[new_dep_id]).call(),
+            "new_dependency": contract.get_dependency(args=[new_dep_id]).call(),
+        },
+    )
+    return new_dep_id, tx_hash
+
+
 def test_studionet_evidence():
     factory = get_contract_factory(contract_file_path=MAIN_PATH)
     deploy_receipt = factory.deploy_contract_tx(**WAIT)
@@ -93,6 +113,17 @@ def test_studionet_evidence():
         "project purpose; SLA vault example; StudioNet evidence; uptime oracle",
     )
     unchanged_review, unchanged_verdict = review(oracle, unchanged_id, "unchanged")
+
+    minor_id, minor_register = register_successor(
+        oracle,
+        unchanged_id,
+        "ServiceUptimeOracle README clarified baseline",
+        LIVE_URL,
+        "The README describes ServiceUptimeOracle as a GenLayer uptime/SLA primitive, "
+        "with an SLA vault example, StudioNet evidence, and a clearer consumer usage section.",
+        "project purpose; SLA vault example; StudioNet evidence; consumer usage",
+    )
+    minor_review, minor_verdict = review(oracle, minor_id, "minor")
 
     material_id, material_register = register(
         oracle,
@@ -158,6 +189,14 @@ def test_studionet_evidence():
                     "register": unchanged_register,
                     "review": unchanged_review,
                     "verdict": unchanged_verdict,
+                },
+                "minor": {
+                    "dep_id": minor_id,
+                    "register_successor": minor_register,
+                    "review": minor_review,
+                    "verdict": minor_verdict,
+                    "old_lineage": oracle.get_lineage(args=[unchanged_id]).call(),
+                    "new_lineage": oracle.get_lineage(args=[minor_id]).call(),
                 },
                 "material": {
                     "dep_id": material_id,

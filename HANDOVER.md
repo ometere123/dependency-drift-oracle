@@ -1,6 +1,7 @@
 # Handover - DependencyDriftOracle
 
-Current status: local implementation and StudioNet evidence complete.
+Current status: local implementation complete, pushed-ready docs updated, and
+StudioNet evidence collected.
 
 ## Built
 
@@ -20,14 +21,36 @@ genvm-lint check examples/dependency_release_guard.py --json
 => ok true
 
 python -m pytest tests/direct -q
-=> 34 passed
+=> 39 passed
 ```
 
 The linter reports only informational runner-update warning `I200`.
 
 ## StudioNet Evidence Completed
 
-Completed transaction hashes:
+Latest successor-lineage deployment:
+
+```text
+deploy updated DependencyDriftOracle:
+0xbb2293622ff24330214a9608a81a0b0cc04af883ee80ec9c354079dd0a5094a1
+
+DependencyDriftOracle address:
+0xe11a825b18df97c6AeC02e26028C54f57C74311a
+
+register dependency:
+0x1e50a8cb75033f9fceea09469064aa5aa61aaa8e6143fac4cbb89466a6ce6dc7
+
+review dependency -> UNCHANGED:
+0xf7cf4ffaba3a268c87eed31236ffa4a1845bdcc13896c4d3225f9261fa057f6a
+
+register successor:
+0xe01da09c6246c03d54b1973171575f81b1bebd0a6e8afde45523874d3538052e
+
+review successor -> UNCHANGED:
+0x79366ece68319e314d50cef3ef5d0b5e04a72e242d5253b658b652b1e2769b17
+```
+
+Earlier complete full-run transaction hashes:
 
 ```text
 deploy DependencyDriftOracle:
@@ -82,6 +105,8 @@ guard attempt risky approval -> accepted rollback, action blocked:
 ## Important Design Notes
 
 - No mutable baseline setter. Reapproval means registering a new dependency id.
+- `register_successor(old_dep_id, ...)` is the approved baseline-upgrade path.
+  It links old/new dependency ids without mutating the old baseline.
 - `get_reliance_status(dep_id, max_age_seconds)` is the preferred consumer view.
   It returns `RELIABLE`, `STALE`, `BLOCKED`, or `UNKNOWN`.
 - `review_dependency` is permissionless; the caller cannot control evidence except

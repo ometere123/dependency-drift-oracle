@@ -51,9 +51,14 @@ baseline.
 `deactivate_dependency(dep_id)` and `reactivate_dependency(dep_id)` are owner-only
 operational controls. They cannot rewrite the baseline or change past reviews.
 
+`register_successor(old_dep_id, name, url, baseline, watch_terms)` creates a new
+immutable dependency id that supersedes an old one. The old baseline remains
+unchanged, but `get_lineage(old_dep_id)` points to the successor and
+`get_lineage(new_dep_id)` points back to the superseded profile.
+
 There is intentionally no baseline setter. If a dependency has a newly approved
-baseline, register a new dependency id. That keeps the primitive honest: old
-reviews always mean "judged against the baseline that was actually approved."
+baseline, register a successor. That keeps the primitive honest: old reviews
+always mean "judged against the baseline that was actually approved."
 
 ## How Consensus Is Used
 
@@ -145,13 +150,14 @@ Results:
 ```text
 DependencyDriftOracle lint: pass
 DependencyReleaseGuard lint: pass
-Direct tests: 34 passed
+Direct tests: 39 passed
 ```
 
 Direct tests cover registration, validation, owner-only activation controls,
-all four verdict paths, fail-safe parsing, missing evidence, freshness-aware
-reliance status, stale-review boundaries, review history, bounded notes,
-separate dependency state, and the consumer example's local state.
+all four verdict paths, fail-safe parsing, missing evidence, successor baseline
+lineage, freshness-aware reliance status, stale-review boundaries, review
+history, bounded notes, separate dependency state, and the consumer example's
+local state.
 
 Direct mode does not execute real cross-contract `gl.get_contract_at(...).view()`
 calls between two local contracts. That path should be proven on StudioNet, where
@@ -159,19 +165,32 @@ the example consumer calls the deployed oracle address.
 
 ## StudioNet Evidence
 
-StudioNet evidence passed on August 3, 2026.
+StudioNet evidence passed on August 3, 2026. The latest source also has a
+separate successor-lineage StudioNet deployment proving the upgrade path.
 
 | Contract | Address |
 |---|---|
-| `DependencyDriftOracle` | `0xF11a20059470e8d5d1B6735B6E015117b8C8aEBE` |
-| `DependencyReleaseGuard` | `0x17eaDd5316f9f07f715424452dAa5264002c3005` |
+| `DependencyDriftOracle` with successor lineage | `0xe11a825b18df97c6AeC02e26028C54f57C74311a` |
+| Earlier full `DependencyDriftOracle` guard run | `0xF11a20059470e8d5d1B6735B6E015117b8C8aEBE` |
+| `DependencyReleaseGuard` full run | `0x17eaDd5316f9f07f715424452dAa5264002c3005` |
 
 Explorer links:
 
-- Oracle: `https://explorer-studio.genlayer.com/address/0xF11a20059470e8d5d1B6735B6E015117b8C8aEBE`
+- Latest oracle: `https://explorer-studio.genlayer.com/address/0xe11a825b18df97c6AeC02e26028C54f57C74311a`
+- Full-run oracle: `https://explorer-studio.genlayer.com/address/0xF11a20059470e8d5d1B6735B6E015117b8C8aEBE`
 - Release guard: `https://explorer-studio.genlayer.com/address/0x17eaDd5316f9f07f715424452dAa5264002c3005`
 
-Main oracle evidence:
+Latest successor-lineage oracle evidence:
+
+| Action | Transaction | Result |
+|---|---|---|
+| deploy updated `DependencyDriftOracle` | `0xbb2293622ff24330214a9608a81a0b0cc04af883ee80ec9c354079dd0a5094a1` | success |
+| register dependency | `0x1e50a8cb75033f9fceea09469064aa5aa61aaa8e6143fac4cbb89466a6ce6dc7` | success |
+| review dependency | `0xf7cf4ffaba3a268c87eed31236ffa4a1845bdcc13896c4d3225f9261fa057f6a` | `UNCHANGED` |
+| register successor baseline | `0xe01da09c6246c03d54b1973171575f81b1bebd0a6e8afde45523874d3538052e` | success; old dep `1` now points to successor dep `2` |
+| review successor dependency | `0x79366ece68319e314d50cef3ef5d0b5e04a72e242d5253b658b652b1e2769b17` | `UNCHANGED` |
+
+Full oracle evidence from the earlier compatible deployment:
 
 | Action | Transaction | Result |
 |---|---|---|
