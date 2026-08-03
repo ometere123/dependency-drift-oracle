@@ -13,6 +13,10 @@ VERDICT_UNCHANGED = "UNCHANGED"
 VERDICT_MINOR = "MINOR_CHANGE"
 VERDICT_MATERIAL = "MATERIAL_DRIFT"
 VERDICT_UNAVAILABLE = "UNAVAILABLE"
+RELIANCE_UNKNOWN = "UNKNOWN"
+RELIANCE_RELIABLE = "RELIABLE"
+RELIANCE_STALE = "STALE"
+RELIANCE_BLOCKED = "BLOCKED"
 
 MAX_DEPENDENCIES = 250
 MAX_HISTORY = 40
@@ -80,6 +84,8 @@ class DependencyDeactivated(gl.Event):
 class IDependencyDriftOracle:
     class View:
         def get_latest_verdict(self, dep_id: u256) -> str: ...
+        def get_reliance_status(self, dep_id: u256, max_age_seconds: u64) -> str: ...
+        def is_reliable(self, dep_id: u256, max_age_seconds: u64) -> bool: ...
         def get_dependency(self, dep_id: u256) -> dict: ...
         def get_latest_review(self, dep_id: u256) -> dict: ...
         def is_materially_drifted(self, dep_id: u256) -> bool: ...
@@ -100,6 +106,17 @@ def _now() -> str:
         pass
     from datetime import datetime, timezone
     return datetime.now(timezone.utc).isoformat()
+
+
+def _seconds_between(earlier_iso: str, later_iso: str) -> int:
+    from datetime import datetime
+    try:
+        earlier = datetime.fromisoformat(str(earlier_iso).replace("Z", "+00:00"))
+        later = datetime.fromisoformat(str(later_iso).replace("Z", "+00:00"))
+        elapsed = int((later - earlier).total_seconds())
+        return elapsed if elapsed >= 0 else 0
+    except Exception:
+        return -1
 
 
 def _hash_text(text: str) -> str:
@@ -291,6 +308,43 @@ class DependencyDriftOracle(gl.Contract):
     @gl.public.view
     def is_materially_drifted(self, dep_id: u256) -> bool:
         return self.get_latest_verdict(dep_id) == VERDICT_MATERIAL
+
+    @gl.public.view
+    def get_reliance_status(self, dep_id: u256, max_age_seconds: u64) -> str:
+        """Return whether consumers can rely on the latest review.
+
+        Verdict alone is not enough for integrations that need recent evidence.
+        This view lets a consumer say "safe only if reviewed within N seconds".
+        It fails closed: missing reviews, unavailable evidence, and unparseable
+        timestamps do not become reliable.
+        """
+        if not dep_id in self.dependencies:
+            return RELIANCE_UNKNOWN
+        dep = self.dependencies[dep_id]
+        if int(dep.review_count) == 0:
+            return RELIANCE_UNKNOWN
+
+        verdict = str(dep.latest_verdict)
+        if verdict == VERDICT_MATERIAL:
+            return RELIANCE_BLOCKED
+        if verdict == VERDICT_UNAVAILABLE or verdict == VERDICT_UNKNOWN:
+            return RELIANCE_UNKNOWN
+
+        max_age = int(max_age_seconds)
+        if max_age > 0:
+            age = _seconds_between(str(dep.latest_review_at), _now())
+            if age < 0:
+                return RELIANCE_UNKNOWN
+            if age > max_age:
+                return RELIANCE_STALE
+
+        if verdict == VERDICT_UNCHANGED or verdict == VERDICT_MINOR:
+            return RELIANCE_RELIABLE
+        return RELIANCE_UNKNOWN
+
+    @gl.public.view
+    def is_reliable(self, dep_id: u256, max_age_seconds: u64) -> bool:
+        return self.get_reliance_status(dep_id, max_age_seconds) == RELIANCE_RELIABLE
 
     @gl.public.view
     def get_latest_review(self, dep_id: u256) -> dict:

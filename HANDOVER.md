@@ -20,7 +20,7 @@ genvm-lint check examples/dependency_release_guard.py --json
 => ok true
 
 python -m pytest tests/direct -q
-=> 31 passed
+=> 34 passed
 ```
 
 The linter reports only informational runner-update warning `I200`.
@@ -31,57 +31,59 @@ Completed transaction hashes:
 
 ```text
 deploy DependencyDriftOracle:
-0xb5ddce73e2abf2d4a6fc299b3ba638794d167d61016559003cb084c053a21c72
+0x013415db8f63ca42cc5ca32e68fb36e5babdd914d268864723a983aef0c88a1c
 
 DependencyDriftOracle address:
-0x9CCaD10e56Ba56fC702C23dc39092676bFe3ED74
+0xF11a20059470e8d5d1B6735B6E015117b8C8aEBE
 
 register unchanged:
-0x68e86463958cafcbef0ff9aa239fd5105a4246e7d9718fe5891bfbf5fbeedd3c
+0x3d4bc70e6ca8e1229bae0e4e0a75eebb23a118b2f8fa404c6a9e873462c9b985
 
 review unchanged -> UNCHANGED:
-0x85df9c02b47ae6fe8d53b3fed03d05788ebefd4a096706bf6463f4b4c8d4db6e
+0x0c3706a63f990d2cd9d32ee02f1e57ba008f11aeb186fff153bfd14e7b9d990e
 
 register material:
-0x839530faec568048b3a553f47ae1f94bbb0df1fb21e7294958d3e398f3a3727e
+0x198e54da6d88eb68c082e6cfd1e58eacc604e7f49df6834849bd3e771706fc25
 
 review material -> MATERIAL_DRIFT:
-0xb6c73c40bd6bdd555ccb8bab971c8c34f7a54921db84d0fa343111182cf82e0e
+0x10b0a97126b3ee08b6d726f162140deee08e44a942b9f0b69503d6de4f91a7fc
 
 register unavailable:
-0x7341fd34580b7e6ec9a971f4c73628109b7997b7818d664b68363fcc9fd40a2d
+0xa29449899b19d9384530c47bb894ab11e1168c47ad44d32f6d4f6f96774ee977
 
 review unavailable -> UNAVAILABLE:
-0xd08d17288e52a48192e293da5af3fd6af6dedbc60023434a4024adae8f7c25dd
+0xf090a54f887560cb875004834191d08ca1cf6c6008ecbbbe6b12fbf9254bb9fe
 
 deactivate:
-0x23bcf0b0569f527b5471592af0264351a24f34d162f92e14f0920ec3301b3c4e
+0x78457d011fd7407f9eef409a4f59837c59a00b93a4cb4ea68495514ff95af6a2
 
 reactivate:
-0xdb871042d56f476c7b86c092d78aebf5df86714fa95b522fa2fe691c793b9ab5
+0x88fc7242951b077445c52da8c9dd57c2a155d2abe07f03bb2441cdecad4a3076
 
 deploy DependencyReleaseGuard:
-0xb90cdf8500e55b31ebcb5383a8cc46a014a3233f41f3a0908fddd2060156200f
+0x29608e753014a177eef6a15f7919198bedaf9cab97457ac4d22e7084de60b25d
 
 DependencyReleaseGuard address:
-0x961544c7C4dC4e8137D49c4205FB7a76d1051Cb3
+0x17eaDd5316f9f07f715424452dAa5264002c3005
 
 guard propose safe release:
 0x600d07034b95a87c2e6d177968872c11f0c52acbf301c2e034f5fe24715009c3
 
-guard approve safe release -> APPROVED, checked_verdict UNCHANGED:
-0xf8af0f67fa3a478bae32eabc1b96570c702900c593c32e1b109b347d17af02ef
+guard approve safe release -> APPROVED, checked_verdict RELIABLE:
+0xf5e4554e15ed8d9837e01ae9ac041b2cdb240861293c013ecb6318147f30116a
 
 guard propose risky release:
-0x0d2a9641b68cedfe75b013ba457ff5e1f1f0febdda2f425ccd62f5be5e4d4d72
+0xa588c57d0115427c3c4b8c293908c5b7fcbc49abef5a21e481af83b0f0e47b16
 
 guard attempt risky approval -> accepted rollback, action blocked:
-0xcd759716b309b0532bd2cd1c8f92ba5199ab8533344e3d69e8331c78c7c12166
+0xd6e2196129bd029e02ab3149ce0a9d44775715662129bff3929cab53fb5d800c
 ```
 
 ## Important Design Notes
 
 - No mutable baseline setter. Reapproval means registering a new dependency id.
+- `get_reliance_status(dep_id, max_age_seconds)` is the preferred consumer view.
+  It returns `RELIABLE`, `STALE`, `BLOCKED`, or `UNKNOWN`.
 - `review_dependency` is permissionless; the caller cannot control evidence except
   by choosing an already-registered dependency id.
 - Fetch or model failure returns `UNAVAILABLE`, not `UNCHANGED`.

@@ -3,10 +3,10 @@
 from genlayer import *
 from dataclasses import dataclass
 
-VERDICT_MATERIAL = "MATERIAL_DRIFT"
-VERDICT_UNAVAILABLE = "UNAVAILABLE"
 ERR_EXPECTED = "EXPECTED"
 MAX_RELEASES = 80
+MAX_REVIEW_AGE_SECONDS = 86400
+RELIANCE_RELIABLE = "RELIABLE"
 
 
 @gl.contract_interface
@@ -14,6 +14,7 @@ class IDependencyDriftOracle:
     class View:
         def get_latest_verdict(self, dep_id: u256) -> str: ...
         def is_materially_drifted(self, dep_id: u256) -> bool: ...
+        def get_reliance_status(self, dep_id: u256, max_age_seconds: u64) -> str: ...
 
 
 @allow_storage
@@ -70,13 +71,17 @@ class DependencyReleaseGuard(gl.Contract):
         if rec.status != "PROPOSED":
             raise gl.vm.UserError(f"{ERR_EXPECTED}: release is closed")
         oracle = gl.get_contract_at(self.oracle)
-        verdict = str(oracle.view().get_latest_verdict(rec.dep_id))
-        rec.checked_verdict = verdict
-        if verdict == VERDICT_MATERIAL or verdict == VERDICT_UNAVAILABLE:
+        status = str(
+            oracle.view().get_reliance_status(
+                rec.dep_id, u64(MAX_REVIEW_AGE_SECONDS)
+            )
+        )
+        rec.checked_verdict = status
+        if status != RELIANCE_RELIABLE:
             rec.status = "BLOCKED"
-            raise gl.vm.UserError(f"{ERR_EXPECTED}: dependency verdict blocks release")
+            raise gl.vm.UserError(f"{ERR_EXPECTED}: dependency reliance status blocks release")
         rec.status = "APPROVED"
-        ReleaseApproved(release_id, verdict).emit()
+        ReleaseApproved(release_id, status).emit()
 
     @gl.public.view
     def get_release(self, release_id: u256) -> dict:

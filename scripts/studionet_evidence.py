@@ -30,6 +30,8 @@ MAIN_SCHEMA = {
         "get_dependency": {"readonly": True},
         "get_latest_review": {"readonly": True},
         "get_latest_verdict": {"readonly": True},
+        "get_reliance_status": {"readonly": True},
+        "is_reliable": {"readonly": True},
         "is_materially_drifted": {"readonly": True},
         "dependency_count": {"readonly": True},
     }

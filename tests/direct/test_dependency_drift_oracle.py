@@ -32,10 +32,23 @@ def mock_review(direct_vm, body, verdict, note="reviewed"):
     )
 
 
+def warp_to(direct_vm, iso):
+    direct_vm.warp(iso)
+    import genlayer.gl as gl
+    raw = getattr(gl, "message_raw", None)
+    if isinstance(raw, dict):
+        raw["datetime"] = iso
+    nested = getattr(getattr(gl, "message", None), "raw", None)
+    if isinstance(nested, dict):
+        nested["datetime"] = iso
+
+
 def test_initial_state(direct_deploy):
     c = deploy(direct_deploy)
     assert c.dependency_count() == 0
     assert c.get_latest_verdict(999) == "UNKNOWN"
+    assert c.get_reliance_status(999, 3600) == "UNKNOWN"
+    assert c.is_reliable(999, 3600) is False
 
 
 def test_register_dependency_records_profile(direct_vm, direct_deploy, direct_alice):
@@ -105,6 +118,8 @@ def test_review_unchanged(direct_vm, direct_deploy):
     assert latest["exists"] is True
     assert latest["verdict"] == "UNCHANGED"
     assert len(latest["baseline_hash"]) == 64
+    assert c.get_reliance_status(dep_id, 3600) == "RELIABLE"
+    assert c.is_reliable(dep_id, 3600) is True
 
 
 def test_review_minor_change(direct_vm, direct_deploy):
@@ -113,6 +128,7 @@ def test_review_minor_change(direct_vm, direct_deploy):
     mock_review(direct_vm, BASELINE + "\nAdded examples and typo fixes.", "MINOR_CHANGE", "docs added")
     assert c.review_dependency(dep_id) == "MINOR_CHANGE"
     assert c.is_materially_drifted(dep_id) is False
+    assert c.get_reliance_status(dep_id, 3600) == "RELIABLE"
 
 
 def test_review_material_drift(direct_vm, direct_deploy):
@@ -123,6 +139,8 @@ def test_review_material_drift(direct_vm, direct_deploy):
     assert c.review_dependency(dep_id) == "MATERIAL_DRIFT"
     assert c.is_materially_drifted(dep_id) is True
     assert c.get_dependency(dep_id)["latest_note"] == "endpoint and license changed"
+    assert c.get_reliance_status(dep_id, 3600) == "BLOCKED"
+    assert c.is_reliable(dep_id, 3600) is False
 
 
 def test_review_unavailable_from_empty_body(direct_vm, direct_deploy):
@@ -131,6 +149,7 @@ def test_review_unavailable_from_empty_body(direct_vm, direct_deploy):
     direct_vm.mock_web(r".*docs\.example\.com/sdk.*", {"status": 200, "body": ""})
     assert c.review_dependency(dep_id) == "UNAVAILABLE"
     assert c.get_latest_verdict(dep_id) == "UNAVAILABLE"
+    assert c.get_reliance_status(dep_id, 3600) == "UNKNOWN"
 
 
 def test_unknown_model_verdict_fails_safe(direct_vm, direct_deploy):
@@ -201,6 +220,38 @@ def test_latest_review_absent_before_review(direct_deploy):
     c = deploy(direct_deploy)
     dep_id = register(c)
     assert c.get_latest_review(dep_id) == {"exists": False, "dep_id": dep_id}
+    assert c.get_reliance_status(dep_id, 3600) == "UNKNOWN"
+
+
+def test_reliance_status_stale_after_max_age(direct_vm, direct_deploy):
+    c = deploy(direct_deploy)
+    dep_id = register(c)
+    mock_review(direct_vm, BASELINE, "UNCHANGED")
+    warp_to(direct_vm, "2026-08-03T10:00:00Z")
+    c.review_dependency(dep_id)
+    warp_to(direct_vm, "2026-08-03T11:00:01Z")
+    assert c.get_reliance_status(dep_id, 3600) == "STALE"
+    assert c.is_reliable(dep_id, 3600) is False
+
+
+def test_reliance_status_exact_boundary_is_reliable(direct_vm, direct_deploy):
+    c = deploy(direct_deploy)
+    dep_id = register(c)
+    mock_review(direct_vm, BASELINE, "UNCHANGED")
+    warp_to(direct_vm, "2026-08-03T10:00:00Z")
+    c.review_dependency(dep_id)
+    warp_to(direct_vm, "2026-08-03T11:00:00Z")
+    assert c.get_reliance_status(dep_id, 3600) == "RELIABLE"
+
+
+def test_reliance_status_max_age_zero_ignores_freshness(direct_vm, direct_deploy):
+    c = deploy(direct_deploy)
+    dep_id = register(c)
+    mock_review(direct_vm, BASELINE, "MINOR_CHANGE")
+    warp_to(direct_vm, "2026-08-03T10:00:00Z")
+    c.review_dependency(dep_id)
+    warp_to(direct_vm, "2026-08-10T10:00:00Z")
+    assert c.get_reliance_status(dep_id, 0) == "RELIABLE"
 
 
 def test_recent_reviews_newest_first_same_verdict(direct_vm, direct_deploy):

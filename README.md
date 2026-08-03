@@ -73,17 +73,30 @@ writes, normalization, and consumer-facing views.
 
 ## How Other Contracts Use It
 
-Consumers read the latest verdict and apply their own policy:
+Consumers can read the raw verdict, but the safer path is to ask for a
+freshness-aware reliance status:
 
 ```python
-verdict = IDependencyDriftOracle(oracle).view().get_latest_verdict(dep_id)
-if verdict == "MATERIAL_DRIFT" or verdict == "UNAVAILABLE":
+status = IDependencyDriftOracle(oracle).view().get_reliance_status(
+    dep_id, 86400
+)
+if status != "RELIABLE":
     raise gl.vm.UserError("dependency must be reapproved before release")
 ```
 
+`get_reliance_status(dep_id, max_age_seconds)` returns:
+
+| Status | Meaning |
+|---|---|
+| `RELIABLE` | Latest verdict is `UNCHANGED` or `MINOR_CHANGE`, and it is fresh enough. |
+| `STALE` | Latest safe verdict is older than the consumer's freshness window. |
+| `BLOCKED` | Latest verdict is `MATERIAL_DRIFT`. |
+| `UNKNOWN` | No review, unavailable evidence, or unsafe/unparseable state. |
+
 The repo includes [`examples/dependency_release_guard.py`](examples/dependency_release_guard.py),
 a minimal consumer that blocks a release when the dependency is materially
-drifted or unavailable. It owns no drift logic; it only reads the oracle verdict.
+drifted, unavailable, unknown, or stale. It owns no drift logic; it only reads the
+oracle's reliance status.
 
 ## Why This Is Not SemanticWatcher
 
@@ -132,12 +145,13 @@ Results:
 ```text
 DependencyDriftOracle lint: pass
 DependencyReleaseGuard lint: pass
-Direct tests: 31 passed
+Direct tests: 34 passed
 ```
 
 Direct tests cover registration, validation, owner-only activation controls,
-all four verdict paths, fail-safe parsing, missing evidence, review history,
-bounded notes, separate dependency state, and the consumer example's local state.
+all four verdict paths, fail-safe parsing, missing evidence, freshness-aware
+reliance status, stale-review boundaries, review history, bounded notes,
+separate dependency state, and the consumer example's local state.
 
 Direct mode does not execute real cross-contract `gl.get_contract_at(...).view()`
 calls between two local contracts. That path should be proven on StudioNet, where
@@ -149,37 +163,37 @@ StudioNet evidence passed on August 3, 2026.
 
 | Contract | Address |
 |---|---|
-| `DependencyDriftOracle` | `0x9CCaD10e56Ba56fC702C23dc39092676bFe3ED74` |
-| `DependencyReleaseGuard` | `0x961544c7C4dC4e8137D49c4205FB7a76d1051Cb3` |
+| `DependencyDriftOracle` | `0xF11a20059470e8d5d1B6735B6E015117b8C8aEBE` |
+| `DependencyReleaseGuard` | `0x17eaDd5316f9f07f715424452dAa5264002c3005` |
 
 Explorer links:
 
-- Oracle: `https://explorer-studio.genlayer.com/address/0x9CCaD10e56Ba56fC702C23dc39092676bFe3ED74`
-- Release guard: `https://explorer-studio.genlayer.com/address/0x961544c7C4dC4e8137D49c4205FB7a76d1051Cb3`
+- Oracle: `https://explorer-studio.genlayer.com/address/0xF11a20059470e8d5d1B6735B6E015117b8C8aEBE`
+- Release guard: `https://explorer-studio.genlayer.com/address/0x17eaDd5316f9f07f715424452dAa5264002c3005`
 
 Main oracle evidence:
 
 | Action | Transaction | Result |
 |---|---|---|
-| deploy `DependencyDriftOracle` | `0xb5ddce73e2abf2d4a6fc299b3ba638794d167d61016559003cb084c053a21c72` | success |
-| register unchanged dependency | `0x68e86463958cafcbef0ff9aa239fd5105a4246e7d9718fe5891bfbf5fbeedd3c` | success |
-| review unchanged dependency | `0x85df9c02b47ae6fe8d53b3fed03d05788ebefd4a096706bf6463f4b4c8d4db6e` | `UNCHANGED` |
-| register stale/material dependency | `0x839530faec568048b3a553f47ae1f94bbb0df1fb21e7294958d3e398f3a3727e` | success |
-| review stale/material dependency | `0xb6c73c40bd6bdd555ccb8bab971c8c34f7a54921db84d0fa343111182cf82e0e` | `MATERIAL_DRIFT` |
-| register unavailable dependency | `0x7341fd34580b7e6ec9a971f4c73628109b7997b7818d664b68363fcc9fd40a2d` | success |
-| review unavailable dependency | `0xd08d17288e52a48192e293da5af3fd6af6dedbc60023434a4024adae8f7c25dd` | `UNAVAILABLE` |
-| deactivate dependency | `0x23bcf0b0569f527b5471592af0264351a24f34d162f92e14f0920ec3301b3c4e` | success |
-| reactivate dependency | `0xdb871042d56f476c7b86c092d78aebf5df86714fa95b522fa2fe691c793b9ab5` | success |
+| deploy `DependencyDriftOracle` | `0x013415db8f63ca42cc5ca32e68fb36e5babdd914d268864723a983aef0c88a1c` | success |
+| register unchanged dependency | `0x3d4bc70e6ca8e1229bae0e4e0a75eebb23a118b2f8fa404c6a9e873462c9b985` | success |
+| review unchanged dependency | `0x0c3706a63f990d2cd9d32ee02f1e57ba008f11aeb186fff153bfd14e7b9d990e` | `UNCHANGED` |
+| register stale/material dependency | `0x198e54da6d88eb68c082e6cfd1e58eacc604e7f49df6834849bd3e771706fc25` | success |
+| review stale/material dependency | `0x10b0a97126b3ee08b6d726f162140deee08e44a942b9f0b69503d6de4f91a7fc` | `MATERIAL_DRIFT` |
+| register unavailable dependency | `0xa29449899b19d9384530c47bb894ab11e1168c47ad44d32f6d4f6f96774ee977` | success |
+| review unavailable dependency | `0xf090a54f887560cb875004834191d08ca1cf6c6008ecbbbe6b12fbf9254bb9fe` | `UNAVAILABLE` |
+| deactivate dependency | `0x78457d011fd7407f9eef409a4f59837c59a00b93a4cb4ea68495514ff95af6a2` | success |
+| reactivate dependency | `0x88fc7242951b077445c52da8c9dd57c2a155d2abe07f03bb2441cdecad4a3076` | success |
 
 Consumer guard evidence:
 
 | Action | Transaction | Result |
 |---|---|---|
-| deploy `DependencyReleaseGuard` | `0xb90cdf8500e55b31ebcb5383a8cc46a014a3233f41f3a0908fddd2060156200f` | success |
-| guard propose safe release | `0x600d07034b95a87c2e6d177968872c11f0c52acbf301c2e034f5fe24715009c3` | success |
-| guard approve safe release | `0xf8af0f67fa3a478bae32eabc1b96570c702900c593c32e1b109b347d17af02ef` | `APPROVED`, checked oracle verdict `UNCHANGED` |
-| guard propose risky release | `0x0d2a9641b68cedfe75b013ba457ff5e1f1f0febdda2f425ccd62f5be5e4d4d72` | success |
-| guard attempt risky approval | `0xcd759716b309b0532bd2cd1c8f92ba5199ab8533344e3d69e8331c78c7c12166` | finalized/accepted with GenVM rollback: `EXPECTED: dependency verdict blocks release` |
+| deploy `DependencyReleaseGuard` | `0x29608e753014a177eef6a15f7919198bedaf9cab97457ac4d22e7084de60b25d` | success |
+| guard propose safe release | `0xe9023725c4c3f4addd4eb2128f3f01916148c46ceedd780a468f85b893bf379c` | success |
+| guard approve safe release | `0xf5e4554e15ed8d9837e01ae9ac041b2cdb240861293c013ecb6318147f30116a` | `APPROVED`, checked oracle reliance status `RELIABLE` |
+| guard propose risky release | `0xa588c57d0115427c3c4b8c293908c5b7fcbc49abef5a21e481af83b0f0e47b16` | success |
+| guard attempt risky approval | `0xd6e2196129bd029e02ab3149ce0a9d44775715662129bff3929cab53fb5d800c` | finalized/accepted with GenVM rollback: `EXPECTED: dependency reliance status blocks release` |
 
 The risky release remained `PROPOSED` with `checked_verdict: UNKNOWN`, proving the
 guard did not approve or mutate the release after the oracle returned
