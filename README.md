@@ -165,22 +165,21 @@ the example consumer calls the deployed oracle address.
 
 ## StudioNet Evidence
 
-StudioNet evidence passed on August 3, 2026. The latest source also has a
-separate successor-lineage StudioNet deployment proving the upgrade path.
+StudioNet evidence passed on August 3, 2026. The latest oracle deployment proves
+successor lineage, material drift detection, and a consumer guard calling that
+same oracle address.
 
 | Contract | Address |
 |---|---|
-| `DependencyDriftOracle` with successor lineage | `0xe11a825b18df97c6AeC02e26028C54f57C74311a` |
-| Earlier full `DependencyDriftOracle` guard run | `0xF11a20059470e8d5d1B6735B6E015117b8C8aEBE` |
-| `DependencyReleaseGuard` full run | `0x17eaDd5316f9f07f715424452dAa5264002c3005` |
+| `DependencyDriftOracle` | `0xe11a825b18df97c6AeC02e26028C54f57C74311a` |
+| `DependencyReleaseGuard` | `0xcb84704a97F033E38c7151182F6A10BF355e0c84` |
 
 Explorer links:
 
-- Latest oracle: `https://explorer-studio.genlayer.com/address/0xe11a825b18df97c6AeC02e26028C54f57C74311a`
-- Full-run oracle: `https://explorer-studio.genlayer.com/address/0xF11a20059470e8d5d1B6735B6E015117b8C8aEBE`
-- Release guard: `https://explorer-studio.genlayer.com/address/0x17eaDd5316f9f07f715424452dAa5264002c3005`
+- Oracle: `https://explorer-studio.genlayer.com/address/0xe11a825b18df97c6AeC02e26028C54f57C74311a`
+- Release guard: `https://explorer-studio.genlayer.com/address/0xcb84704a97F033E38c7151182F6A10BF355e0c84`
 
-Latest successor-lineage oracle evidence:
+Main oracle evidence:
 
 | Action | Transaction | Result |
 |---|---|---|
@@ -189,30 +188,18 @@ Latest successor-lineage oracle evidence:
 | review dependency | `0xf7cf4ffaba3a268c87eed31236ffa4a1845bdcc13896c4d3225f9261fa057f6a` | `UNCHANGED` |
 | register successor baseline | `0xe01da09c6246c03d54b1973171575f81b1bebd0a6e8afde45523874d3538052e` | success; old dep `1` now points to successor dep `2` |
 | review successor dependency | `0x79366ece68319e314d50cef3ef5d0b5e04a72e242d5253b658b652b1e2769b17` | `UNCHANGED` |
-
-Full oracle evidence from the earlier compatible deployment:
-
-| Action | Transaction | Result |
-|---|---|---|
-| deploy `DependencyDriftOracle` | `0x013415db8f63ca42cc5ca32e68fb36e5babdd914d268864723a983aef0c88a1c` | success |
-| register unchanged dependency | `0x3d4bc70e6ca8e1229bae0e4e0a75eebb23a118b2f8fa404c6a9e873462c9b985` | success |
-| review unchanged dependency | `0x0c3706a63f990d2cd9d32ee02f1e57ba008f11aeb186fff153bfd14e7b9d990e` | `UNCHANGED` |
-| register stale/material dependency | `0x198e54da6d88eb68c082e6cfd1e58eacc604e7f49df6834849bd3e771706fc25` | success |
-| review stale/material dependency | `0x10b0a97126b3ee08b6d726f162140deee08e44a942b9f0b69503d6de4f91a7fc` | `MATERIAL_DRIFT` |
-| register unavailable dependency | `0xa29449899b19d9384530c47bb894ab11e1168c47ad44d32f6d4f6f96774ee977` | success |
-| review unavailable dependency | `0xf090a54f887560cb875004834191d08ca1cf6c6008ecbbbe6b12fbf9254bb9fe` | `UNAVAILABLE` |
-| deactivate dependency | `0x78457d011fd7407f9eef409a4f59837c59a00b93a4cb4ea68495514ff95af6a2` | success |
-| reactivate dependency | `0x88fc7242951b077445c52da8c9dd57c2a155d2abe07f03bb2441cdecad4a3076` | success |
+| register material dependency | `0xff33b1c23087cfb2c164f02720d71828589000922d35fe9f02bfa02f5b0a2592` | success |
+| review material dependency | `0x3a950640cb722e501834062600ff3338b0a13cf874715b1d7e0d9f0044a63725` | `MATERIAL_DRIFT` |
 
 Consumer guard evidence:
 
 | Action | Transaction | Result |
 |---|---|---|
-| deploy `DependencyReleaseGuard` | `0x29608e753014a177eef6a15f7919198bedaf9cab97457ac4d22e7084de60b25d` | success |
-| guard propose safe release | `0xe9023725c4c3f4addd4eb2128f3f01916148c46ceedd780a468f85b893bf379c` | success |
-| guard approve safe release | `0xf5e4554e15ed8d9837e01ae9ac041b2cdb240861293c013ecb6318147f30116a` | `APPROVED`, checked oracle reliance status `RELIABLE` |
-| guard propose risky release | `0xa588c57d0115427c3c4b8c293908c5b7fcbc49abef5a21e481af83b0f0e47b16` | success |
-| guard attempt risky approval | `0xd6e2196129bd029e02ab3149ce0a9d44775715662129bff3929cab53fb5d800c` | finalized/accepted with GenVM rollback: `EXPECTED: dependency reliance status blocks release` |
+| deploy `DependencyReleaseGuard` with latest oracle address | `0xb8f72f2332dd4e7fdf461b50cce4e63f5b10b7e11a44217149be86ea31b07975` | success |
+| guard propose safe release | `0x79874fdf18b9a79af97eb9ed18265570554171c396d705037cb06508a946ba5a` | success |
+| guard approve safe release | `0xe974fedfc89a0318fd59961dd0ec2d063caaa7a7297099e1c07a7ff7eb23b560` | `APPROVED`, checked oracle reliance status `RELIABLE` |
+| guard propose risky release | `0x2907b1726cc5a7e4f0902f3bf7c28714f7a5251316f209fd870ba6e4c410b75c` | success |
+| guard attempt risky approval | `0x4b0ad040ca8f953b6ccdc38f188ea8ff289ac0f7de1b932a47b72a876d383308` | accepted rollback: `EXPECTED: dependency reliance status blocks release` |
 
 The risky release remained `PROPOSED` with `checked_verdict: UNKNOWN`, proving the
 guard did not approve or mutate the release after the oracle returned
